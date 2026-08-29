@@ -91,19 +91,19 @@ QFrame#HeaderFrame {
 QFrame#StatCardToday {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #106038, stop:1 #167a48);
     border: 1px solid #25a260;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 0px;
 }
 QFrame#StatCardWeek {
     background-color: #202222;
     border: 1px solid #2c302f;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 0px;
 }
 QFrame#StatCardTotal {
     background-color: #202222;
     border: 1px solid #106038;
-    border-radius: 8px;
+    border-radius: 4px;
     padding: 0px;
 }
 QFrame#StatCardWeek:hover, QFrame#StatCardTotal:hover {
@@ -113,7 +113,7 @@ QFrame#StatCardWeek:hover, QFrame#StatCardTotal:hover {
 /* Friend Cards */
 QFrame#FriendCard {
     background-color: #202222;
-    border-radius: 8px;
+    border-radius: 4px;
     border: 1px solid #2c302f;
 }
 QFrame#FriendCard:hover {
@@ -122,7 +122,7 @@ QFrame#FriendCard:hover {
 }
 QFrame#FriendCardToday {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2b181e, stop:1 #202222);
-    border-radius: 8px;
+    border-radius: 4px;
     border: 2px solid #e60017;
 }
 QFrame#FriendCardToday:hover {
@@ -139,8 +139,8 @@ QLabel#AppTitle {
 QLabel#StatusBadge {
     font-size: 13px;
     font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 10px;
+    padding: 5px 10px;
+    border-radius: 4px;
     background-color: #282c2b;
     color: #25a260;
     border: 1px solid #373d3b;
@@ -172,8 +172,8 @@ QPushButton {
     color: #ffffff;
     font-size: 14px;
     font-weight: 700;
-    border-radius: 8px;
-    padding: 9px 18px;
+    border-radius: 4px;
+    padding: 8px 16px;
     border: none;
 }
 QPushButton:hover {
@@ -204,8 +204,8 @@ QPushButton#SecondaryBtn:hover {
 QLineEdit {
     background-color: #282c2b;
     border: 1px solid #373d3b;
-    border-radius: 8px;
-    padding: 8px 12px;
+    border-radius: 4px;
+    padding: 7px 10px;
     color: #e5e8e6;
     font-size: 14px;
 }
@@ -214,19 +214,20 @@ QLineEdit:focus {
     background-color: #2c3130;
 }
 QTabWidget::pane {
-    border: none;
-    background: transparent;
+    border: 1px solid #2c302f;
+    background-color: #202222;
+    border-radius: 4px;
 }
 QTabBar::tab {
-    background-color: #202222;
+    background-color: #282c2b;
     color: #8f9895;
-    padding: 10px 20px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    margin-right: 4px;
+    padding: 8px 18px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 3px;
     font-weight: 700;
     font-size: 14px;
-    border: 1px solid #2c302f;
+    border: 1px solid #373d3b;
     border-bottom: none;
 }
 QTabBar::tab:selected {
@@ -237,9 +238,9 @@ QTabBar::tab:selected {
 QGroupBox {
     background-color: #202222;
     border: 1px solid #2c302f;
-    border-radius: 10px;
+    border-radius: 4px;
     margin-top: 14px;
-    padding: 18px;
+    padding: 16px;
     font-weight: 700;
     color: #e5e8e6;
 }
@@ -340,19 +341,19 @@ class FriendCardWidget(QFrame):
         # Badge pill logic
         if is_today:
             pill_text = f"🎉 СЬОГОДНІ ДЕНЬ НАРОДЖЕННЯ! ({bday_str})"
-            pill_style = "background-color: #e60017; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #e60017; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 3px; font-size: 11px;"
         elif days_until == 1:
             pill_text = f"🎂 ЗАВТРА ({bday_str})"
-            pill_style = "background-color: #106038; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #106038; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 3px; font-size: 11px;"
         elif 0 < days_until <= 7:
             pill_text = f"📅 НА ЦЬОМУ ТИЖНІ (через {days_until} дн.) — {bday_str}"
-            pill_style = "background-color: #177846; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #177846; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 3px; font-size: 11px;"
         elif days_until < 0:
             pill_text = f"🗓️ Був на цьому тижні ({abs(days_until)} дн. тому) — {bday_str}"
-            pill_style = "background-color: #282c2b; color: #8f9895; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #282c2b; color: #8f9895; font-weight: 600; padding: 2px 8px; border-radius: 3px; font-size: 11px;"
         else:
             pill_text = f"🗓️ {bday_str}"
-            pill_style = "background-color: #282c2b; color: #25a260; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #282c2b; color: #25a260; font-weight: 600; padding: 2px 8px; border-radius: 3px; font-size: 11px;"
 
         pill_label = QLabel(pill_text)
         pill_label.setStyleSheet(pill_style)
@@ -373,7 +374,7 @@ class FriendCardWidget(QFrame):
         if profile_url:
             btn_open = QPushButton("🌐 Профіль FB")
             btn_open.setObjectName("SecondaryBtn")
-            btn_open.setStyleSheet("padding: 4px 10px; font-size: 12px; border-radius: 6px;")
+            btn_open.setStyleSheet("padding: 4px 10px; font-size: 12px; border-radius: 3px;")
             btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_open.clicked.connect(lambda checked=False, url=profile_url: webbrowser.open(url))
             layout.addWidget(btn_open)
