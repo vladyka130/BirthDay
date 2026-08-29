@@ -4,24 +4,12 @@ import subprocess
 from date_utils import get_current_week_range
 from database import BirthdayDatabase
 
-def send_windows_notification(title: str, message: str):
-    """Sends a Windows notification using winotify, plyer, or PowerShell fallback."""
-    # Method 1: winotify
-    try:
-        from winotify import Notification, audio
-        toast = Notification(
-            app_id="Facebook Birthday Assistant",
-            title=title,
-            msg=message,
-            duration="short"
-        )
-        toast.set_audio(audio.Default, loop=False)
-        toast.show()
-        return True
-    except Exception:
-        pass
+def send_desktop_notification(title: str, message: str) -> bool:
+    """Sends native desktop notifications across Windows, Linux, and macOS."""
+    clean_title = title.replace('"', "'")
+    clean_msg = message.replace('"', "'")
 
-    # Method 2: plyer
+    # Method 1: Plyer (Cross-platform library)
     try:
         from plyer import notification
         notification.notify(
@@ -34,24 +22,60 @@ def send_windows_notification(title: str, message: str):
     except Exception:
         pass
 
-    # Method 3: PowerShell Buran/Toast notification fallback (Native Windows)
-    try:
-        clean_title = title.replace('"', "'")
-        clean_msg = message.replace('"', "'")
-        ps_script = f"""
-        [void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
-        $notify = New-Object System.Windows.Forms.NotifyIcon
-        $notify.Icon = [System.Drawing.SystemIcons]::Information
-        $notify.Visible = $True
-        $notify.ShowBalloonTip(10000, "{clean_title}", "{clean_msg}", [System.Windows.Forms.ToolTipIcon]::Info)
-        Start-Sleep -s 2
-        $notify.Dispose()
-        """
-        subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, timeout=5)
-        return True
-    except Exception as e:
-        print(f"[Notifier Fallback Error]: {e}")
-        return False
+    # Method 2: Platform-specific fallbacks
+    if sys.platform.startswith("win"):
+        # Windows: winotify
+        try:
+            from winotify import Notification, audio
+            toast = Notification(
+                app_id="Facebook Birthday Assistant",
+                title=title,
+                msg=message,
+                duration="short"
+            )
+            toast.set_audio(audio.Default, loop=False)
+            toast.show()
+            return True
+        except Exception:
+            pass
+
+        # Windows: PowerShell NotifyIcon
+        try:
+            ps_script = f"""
+            [void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms')
+            $notify = New-Object System.Windows.Forms.NotifyIcon
+            $notify.Icon = [System.Drawing.SystemIcons]::Information
+            $notify.Visible = $True
+            $notify.ShowBalloonTip(10000, "{clean_title}", "{clean_msg}", [System.Windows.Forms.ToolTipIcon]::Info)
+            Start-Sleep -s 2
+            $notify.Dispose()
+            """
+            subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], capture_output=True, timeout=5)
+            return True
+        except Exception as e:
+            print(f"[Notifier Windows Fallback Error]: {e}")
+
+    elif sys.platform.startswith("linux"):
+        # Linux: notify-send (libnotify)
+        try:
+            subprocess.run(["notify-send", "-i", "dialog-information", clean_title, clean_msg], capture_output=True, timeout=5)
+            return True
+        except Exception as e:
+            print(f"[Notifier Linux Fallback Error]: {e}")
+
+    elif sys.platform == "darwin":
+        # macOS: osascript
+        try:
+            apple_script = f'display notification "{clean_msg}" with title "{clean_title}"'
+            subprocess.run(["osascript", "-e", apple_script], capture_output=True, timeout=5)
+            return True
+        except Exception as e:
+            print(f"[Notifier macOS Fallback Error]: {e}")
+
+    return False
+
+# Backwards compatibility alias
+send_windows_notification = send_desktop_notification
 
 def check_and_notify_birthdays(db: BirthdayDatabase = None) -> dict:
     if db is None:

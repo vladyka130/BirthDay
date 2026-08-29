@@ -3,11 +3,24 @@ import os
 from datetime import datetime, date
 from date_utils import is_birthday_in_current_week, is_birthday_today, get_days_until
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "birthdays.db")
+APP_DIR = os.path.join(os.path.expanduser("~"), ".fb_birthday_app")
+os.makedirs(APP_DIR, exist_ok=True)
+DEFAULT_DB_FILE = os.path.join(APP_DIR, "birthdays.db")
+LOCAL_DB_FILE = os.path.join(os.path.dirname(__file__), "birthdays.db")
+
+# Auto-migrate local database to user directory if needed
+if os.path.exists(LOCAL_DB_FILE) and not os.path.exists(DEFAULT_DB_FILE):
+    import shutil
+    try:
+        shutil.copy2(LOCAL_DB_FILE, DEFAULT_DB_FILE)
+    except Exception:
+        pass
+
+DB_FILE = DEFAULT_DB_FILE if (os.path.exists(DEFAULT_DB_FILE) or not os.access(os.path.dirname(__file__), os.W_OK)) else LOCAL_DB_FILE
 
 class BirthdayDatabase:
-    def __init__(self, db_path: str = DB_FILE):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path if db_path else DB_FILE
         self._init_db()
 
     def _get_connection(self):
@@ -31,6 +44,12 @@ class BirthdayDatabase:
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            # Auto-clean legacy invalid/generic profile URLs
+            conn.execute("""
+                UPDATE friends SET profile_url = ''
+                WHERE profile_url LIKE '%facebook.com' OR profile_url LIKE '%facebook.com/'
+                   OR profile_url LIKE '%/me' OR profile_url LIKE '%/me/%';
+            """)
             conn.commit()
 
     def upsert_friend(self, fb_name: str, profile_url: str = "", avatar_url: str = "",
@@ -39,6 +58,12 @@ class BirthdayDatabase:
         if not fb_name:
             return
 
+        from fb_scraper import clean_profile_url
+        profile_url = clean_profile_url(profile_url)
+
+        if avatar_url and "emoji.php" in avatar_url:
+            avatar_url = ""
+
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self._get_connection() as conn:
             conn.execute("""
@@ -46,7 +71,7 @@ class BirthdayDatabase:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fb_name) DO UPDATE SET
                     profile_url=excluded.profile_url,
-                    avatar_url=CASE WHEN excluded.avatar_url <> '' THEN excluded.avatar_url ELSE avatar_url END,
+                    avatar_url=CASE WHEN excluded.avatar_url <> '' THEN excluded.avatar_url WHEN avatar_url LIKE '%emoji.php%' THEN '' ELSE avatar_url END,
                     birth_day=excluded.birth_day,
                     birth_month=excluded.birth_month,
                     birth_year=excluded.birth_year,

@@ -2,6 +2,8 @@ import sys
 import os
 import webbrowser
 import traceback
+import hashlib
+import urllib.request
 from datetime import date
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -9,15 +11,69 @@ from PyQt6.QtWidgets import (
     QTabWidget, QMessageBox, QProgressBar, QGridLayout, QSizePolicy, QGroupBox, QGraphicsDropShadowEffect
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QSize
-from PyQt6.QtGui import QFont, QColor, QPalette, QIcon, QPainter, QLinearGradient, QBrush
+from PyQt6.QtGui import QFont, QColor, QPalette, QIcon, QPainter, QLinearGradient, QBrush, QPixmap, QPainterPath
 
 from database import BirthdayDatabase
 from fb_scraper import FacebookScraper
 from date_utils import get_days_until, is_birthday_in_current_week, is_birthday_today
-from notifier import check_and_notify_birthdays, send_windows_notification
+from notifier import check_and_notify_birthdays, send_desktop_notification, send_windows_notification
+
+AVATAR_CACHE_DIR = os.path.join(os.path.expanduser("~"), ".fb_birthday_app", "avatars")
+os.makedirs(AVATAR_CACHE_DIR, exist_ok=True)
+
+def make_circular_pixmap(pixmap: QPixmap, size: int = 44) -> QPixmap:
+    if pixmap.isNull():
+        return QPixmap()
+    
+    scaled = pixmap.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+    out_pixmap = QPixmap(size, size)
+    out_pixmap.fill(Qt.GlobalColor.transparent)
+    
+    painter = QPainter(out_pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    
+    path = QPainterPath()
+    path.addEllipse(0, 0, size, size)
+    painter.setClipPath(path)
+    
+    x = (scaled.width() - size) // 2
+    y = (scaled.height() - size) // 2
+    painter.drawPixmap(0, 0, scaled, x, y, size, size)
+    painter.end()
+    
+    return out_pixmap
+
+class AvatarDownloaderWorker(QThread):
+    avatar_loaded = pyqtSignal(str, QPixmap)
+
+    def __init__(self, avatar_url: str, cache_path: str):
+        super().__init__()
+        self.avatar_url = avatar_url
+        self.cache_path = cache_path
+
+    def run(self):
+        try:
+            req = urllib.request.Request(
+                self.avatar_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as response:
+                data = response.read()
+                if data:
+                    with open(self.cache_path, "wb") as f:
+                        f.write(data)
+                    pixmap = QPixmap(self.cache_path)
+                    if not pixmap.isNull():
+                        self.avatar_loaded.emit(self.cache_path, pixmap)
+        except Exception:
+            pass
 
 # Ultra-Modern Glassmorphism & Cyberpunk Dark Theme Stylesheet
 ULTRA_DARK_STYLESHEET = """
+* {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
+}
 QMainWindow {
     background-color: #0d0e15;
 }
@@ -34,20 +90,20 @@ QFrame#HeaderFrame {
 }
 QFrame#StatCardToday {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff007f, stop:1 #7a00ff);
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 8px;
+    padding: 0px;
 }
 QFrame#StatCardWeek {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1b26, stop:1 #24283b);
     border: 1px solid #3b4261;
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 8px;
+    padding: 0px;
 }
 QFrame#StatCardTotal {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #161622, stop:1 #1f2335);
     border: 1px solid #2ac3de;
-    border-radius: 16px;
-    padding: 18px;
+    border-radius: 8px;
+    padding: 0px;
 }
 QFrame#StatCardWeek:hover, QFrame#StatCardTotal:hover {
     border: 1px solid #7dcfff;
@@ -56,7 +112,7 @@ QFrame#StatCardWeek:hover, QFrame#StatCardTotal:hover {
 /* Friend Cards */
 QFrame#FriendCard {
     background-color: #161622;
-    border-radius: 14px;
+    border-radius: 10px;
     border: 1px solid #1f2335;
 }
 QFrame#FriendCard:hover {
@@ -65,7 +121,7 @@ QFrame#FriendCard:hover {
 }
 QFrame#FriendCardToday {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #291528, stop:1 #161622);
-    border-radius: 14px;
+    border-radius: 10px;
     border: 2px solid #ff757f;
 }
 QFrame#FriendCardToday:hover {
@@ -88,26 +144,24 @@ QLabel#StatusBadge {
     color: #7aa2f7;
 }
 QLabel#StatNumHighlight {
-    font-size: 32px;
+    font-size: 16px;
     font-weight: 900;
     color: #ffffff;
 }
 QLabel#StatNumNormal {
-    font-size: 30px;
+    font-size: 16px;
     font-weight: 800;
     color: #7dcfff;
 }
 QLabel#StatTitleHighlight {
-    font-size: 13px;
-    font-weight: 700;
-    color: #f7768e;
-    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 800;
+    color: #ffffff;
 }
 QLabel#StatTitleNormal {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
-    color: #565f89;
-    text-transform: uppercase;
+    color: #a9b1d6;
 }
 
 /* Buttons */
@@ -218,47 +272,63 @@ class SyncWorker(QThread):
 
 
 class FriendCardWidget(QFrame):
+    AVATAR_SIZE = 44
+
     def __init__(self, friend: dict, parent=None):
         super().__init__(parent)
         is_today = is_birthday_today(friend.get("birth_day"), friend.get("birth_month"))
         self.setObjectName("FriendCardToday" if is_today else "FriendCard")
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 4, 12, 4)
+        layout.setSpacing(12)
 
-        # Avatar Initial Badge
+        # Avatar Profile Picture / Initial Badge Fallback
         name = friend.get("fb_name", "Друг")
         initials = "".join([part[0].upper() for part in name.split()[:2]]) if name else "?"
+        avatar_url = (friend.get("avatar_url") or "").strip()
 
-        avatar_label = QLabel(initials)
-        avatar_label.setFixedSize(52, 52)
-        avatar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.avatar_label = QLabel(initials)
+        self.avatar_label.setFixedSize(self.AVATAR_SIZE, self.AVATAR_SIZE)
+        self.avatar_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
+        radius = self.AVATAR_SIZE // 2
         if is_today:
-            avatar_style = """
+            self.avatar_style = f"""
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff007f, stop:1 #7a00ff);
                 color: #ffffff;
-                font-size: 20px;
+                font-size: 16px;
                 font-weight: 900;
-                border-radius: 26px;
+                border-radius: {radius}px;
             """
         else:
-            avatar_style = """
+            self.avatar_style = f"""
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #7dcfff, stop:1 #7aa2f7);
                 color: #0f0f17;
-                font-size: 19px;
+                font-size: 15px;
                 font-weight: 800;
-                border-radius: 26px;
+                border-radius: {radius}px;
             """
-        avatar_label.setStyleSheet(avatar_style)
+        self.avatar_label.setStyleSheet(self.avatar_style)
+
+        if avatar_url:
+            url_hash = hashlib.md5(avatar_url.encode('utf-8')).hexdigest()
+            cache_path = os.path.join(AVATAR_CACHE_DIR, f"{url_hash}.jpg")
+            if os.path.exists(cache_path):
+                pixmap = QPixmap(cache_path)
+                if not pixmap.isNull():
+                    self.set_circular_avatar(pixmap)
+            else:
+                self.downloader = AvatarDownloaderWorker(avatar_url, cache_path)
+                self.downloader.avatar_loaded.connect(self.on_avatar_downloaded)
+                self.downloader.start()
 
         # Info Layout
         info_layout = QVBoxLayout()
-        info_layout.setSpacing(4)
+        info_layout.setSpacing(2)
 
         name_label = QLabel(name)
-        name_label.setStyleSheet("font-size: 17px; font-weight: 700; color: #c0caf5;")
+        name_label.setStyleSheet("font-size: 15px; font-weight: 700; color: #c0caf5;")
 
         bday_str = friend.get("birthday_str", "")
         days_until = get_days_until(friend.get("birth_day"), friend.get("birth_month"))
@@ -266,19 +336,19 @@ class FriendCardWidget(QFrame):
         # Badge pill logic
         if is_today:
             pill_text = f"🎉 СЬОГОДНІ ДЕНЬ НАРОДЖЕННЯ! ({bday_str})"
-            pill_style = "background-color: #ff757f; color: #15161e; font-weight: 800; padding: 4px 10px; border-radius: 8px; font-size: 12px;"
+            pill_style = "background-color: #ff757f; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif days_until == 1:
             pill_text = f"🎂 ЗАВТРА ({bday_str})"
-            pill_style = "background-color: #73daca; color: #15161e; font-weight: 800; padding: 4px 10px; border-radius: 8px; font-size: 12px;"
+            pill_style = "background-color: #73daca; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif 0 < days_until <= 7:
             pill_text = f"📅 НА ЦЬОМУ ТИЖНІ (через {days_until} дн.) — {bday_str}"
-            pill_style = "background-color: #7aa2f7; color: #15161e; font-weight: 800; padding: 4px 10px; border-radius: 8px; font-size: 12px;"
+            pill_style = "background-color: #7aa2f7; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif days_until < 0:
             pill_text = f"🗓️ Був на цьому тижні ({abs(days_until)} дн. тому) — {bday_str}"
-            pill_style = "background-color: #24283b; color: #565f89; font-weight: 600; padding: 4px 10px; border-radius: 8px; font-size: 12px;"
+            pill_style = "background-color: #24283b; color: #565f89; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         else:
             pill_text = f"🗓️ {bday_str}"
-            pill_style = "background-color: #1f2335; color: #7dcfff; font-weight: 600; padding: 4px 10px; border-radius: 8px; font-size: 12px;"
+            pill_style = "background-color: #1f2335; color: #7dcfff; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
 
         pill_label = QLabel(pill_text)
         pill_label.setStyleSheet(pill_style)
@@ -287,18 +357,33 @@ class FriendCardWidget(QFrame):
         info_layout.addWidget(name_label)
         info_layout.addWidget(pill_label)
 
-        layout.addWidget(avatar_label)
+        layout.addWidget(self.avatar_label)
         layout.addLayout(info_layout)
         layout.addStretch()
 
         # Action Buttons
-        profile_url = friend.get("profile_url", "")
+        raw_url = friend.get("profile_url", "")
+        from fb_scraper import clean_profile_url
+        profile_url = clean_profile_url(raw_url)
+
         if profile_url:
             btn_open = QPushButton("🌐 Профіль FB")
             btn_open.setObjectName("SecondaryBtn")
+            btn_open.setStyleSheet("padding: 4px 10px; font-size: 12px; border-radius: 6px;")
             btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_open.clicked.connect(lambda: webbrowser.open(profile_url))
+            btn_open.clicked.connect(lambda checked=False, url=profile_url: webbrowser.open(url))
             layout.addWidget(btn_open)
+
+    def on_avatar_downloaded(self, cache_path: str, pixmap: QPixmap):
+        self.set_circular_avatar(pixmap)
+
+    def set_circular_avatar(self, pixmap: QPixmap):
+        circular_pix = make_circular_pixmap(pixmap, self.AVATAR_SIZE)
+        if not circular_pix.isNull():
+            radius = self.AVATAR_SIZE // 2
+            self.avatar_label.setText("")
+            self.avatar_label.setPixmap(circular_pix)
+            self.avatar_label.setStyleSheet(f"border-radius: {radius}px; background: transparent;")
 
 
 class BirthdayAssistantApp(QMainWindow):
@@ -320,8 +405,8 @@ class BirthdayAssistantApp(QMainWindow):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(24, 24, 24, 24)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(20, 16, 20, 16)
+        main_layout.setSpacing(12)
 
         # Header Bar
         header_layout = QHBoxLayout()
@@ -349,41 +434,47 @@ class BirthdayAssistantApp(QMainWindow):
         header_layout.addWidget(self.btn_sync)
         main_layout.addLayout(header_layout)
 
-        # Stat Hero Banner Cards
+        # Stat Hero Banner Cards (Compact Badges)
         stats_layout = QHBoxLayout()
-        stats_layout.setSpacing(16)
+        stats_layout.setSpacing(10)
 
         # Card 1: Today
         self.card_today = QFrame()
         self.card_today.setObjectName("StatCardToday")
-        today_l = QVBoxLayout(self.card_today)
-        self.lbl_today_num = QLabel("0", self.card_today)
-        self.lbl_today_num.setObjectName("StatNumHighlight")
+        today_l = QHBoxLayout(self.card_today)
+        today_l.setContentsMargins(12, 6, 12, 6)
         lbl_today_title = QLabel("🎈 Сьогодні святкують", self.card_today)
         lbl_today_title.setObjectName("StatTitleHighlight")
+        self.lbl_today_num = QLabel("0", self.card_today)
+        self.lbl_today_num.setObjectName("StatNumHighlight")
         today_l.addWidget(lbl_today_title)
+        today_l.addStretch()
         today_l.addWidget(self.lbl_today_num)
 
         # Card 2: Current Week
         self.card_week = QFrame()
         self.card_week.setObjectName("StatCardWeek")
-        week_l = QVBoxLayout(self.card_week)
-        self.lbl_week_num = QLabel("0", self.card_week)
-        self.lbl_week_num.setObjectName("StatNumNormal")
+        week_l = QHBoxLayout(self.card_week)
+        week_l.setContentsMargins(12, 6, 12, 6)
         lbl_week_title = QLabel("📅 На цьому тижні", self.card_week)
         lbl_week_title.setObjectName("StatTitleNormal")
+        self.lbl_week_num = QLabel("0", self.card_week)
+        self.lbl_week_num.setObjectName("StatNumNormal")
         week_l.addWidget(lbl_week_title)
+        week_l.addStretch()
         week_l.addWidget(self.lbl_week_num)
 
         # Card 3: Total Database
         self.card_total = QFrame()
         self.card_total.setObjectName("StatCardTotal")
-        total_l = QVBoxLayout(self.card_total)
-        self.lbl_total_num = QLabel("0", self.card_total)
-        self.lbl_total_num.setObjectName("StatNumNormal")
+        total_l = QHBoxLayout(self.card_total)
+        total_l.setContentsMargins(12, 6, 12, 6)
         lbl_total_title = QLabel("👥 Усього в базі", self.card_total)
         lbl_total_title.setObjectName("StatTitleNormal")
+        self.lbl_total_num = QLabel("0", self.card_total)
+        self.lbl_total_num.setObjectName("StatNumNormal")
         total_l.addWidget(lbl_total_title)
+        total_l.addStretch()
         total_l.addWidget(self.lbl_total_num)
 
         stats_layout.addWidget(self.card_today)
@@ -410,7 +501,7 @@ class BirthdayAssistantApp(QMainWindow):
         self.scroll_week.setWidgetResizable(True)
         self.scroll_week_content = QWidget()
         self.layout_week_list = QVBoxLayout(self.scroll_week_content)
-        self.layout_week_list.setSpacing(12)
+        self.layout_week_list.setSpacing(6)
         self.layout_week_list.addStretch()
         self.scroll_week.setWidget(self.scroll_week_content)
 
@@ -430,7 +521,7 @@ class BirthdayAssistantApp(QMainWindow):
         self.scroll_all.setWidgetResizable(True)
         self.scroll_all_content = QWidget()
         self.layout_all_list = QVBoxLayout(self.scroll_all_content)
-        self.layout_all_list.setSpacing(12)
+        self.layout_all_list.setSpacing(6)
         self.layout_all_list.addStretch()
         self.scroll_all.setWidget(self.scroll_all_content)
 
@@ -602,9 +693,9 @@ class BirthdayAssistantApp(QMainWindow):
         QMessageBox.information(self, "Демо-дані", f"Завантажено {count} тестових записів у базу даних!")
 
     def _on_test_notification_clicked(self):
-        success = send_windows_notification("🎂 Тестове сповіщення", "Додаток перевіряє роботу сповіщень Windows!")
+        success = send_desktop_notification("🎂 Тестове сповіщення", "Додаток перевіряє роботу системних сповіщень!")
         if success:
-            QMessageBox.information(self, "Сповіщення", "Сповіщення успішно надіслано в систему Windows!")
+            QMessageBox.information(self, "Сповіщення", "Сповіщення успішно надіслано в систему!")
         else:
             QMessageBox.warning(self, "Помилка", "Не вдалося надіслати сповіщення.")
 
@@ -624,6 +715,10 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = handle_exception
 
 def main():
+    if hasattr(Qt, 'HighDpiScaleFactorRoundingPolicy'):
+        QApplication.setHighDpiScaleFactorRoundingPolicy(
+            Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
     app = QApplication(sys.argv)
     window = BirthdayAssistantApp()
     window.show()

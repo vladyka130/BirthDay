@@ -1,4 +1,7 @@
-import pytest
+try:
+    import pytest
+except ImportError:
+    pytest = None
 from datetime import date, timedelta
 from date_utils import parse_birthday_text, get_current_week_range, is_birthday_in_current_week, is_birthday_today, get_days_until
 from database import BirthdayDatabase
@@ -61,3 +64,13 @@ def test_database_operations(tmp_path):
 
     stats = db.get_stats()
     assert stats["total_friends"] == 3
+
+if __name__ == "__main__":
+    import tempfile
+    from pathlib import Path
+    print("Running date utils tests...")
+    test_parse_birthday_text()
+    test_current_week_logic()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        test_database_operations(Path(tmp_dir))
+    print("✅ All cross-platform tests passed successfully!")

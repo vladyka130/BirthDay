@@ -12,30 +12,124 @@ os.makedirs(STATE_DIR, exist_ok=True)
 
 def _ensure_event_loop():
     try:
-        asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
 def _launch_browser_with_fallback(p, headless=False, args=None):
-    """Attempts to launch installed Chrome, installed Edge, or Playwright Chromium."""
+    """Attempts to launch installed Chrome, installed Edge, or Playwright Chromium on Windows/Linux/macOS."""
     if args is None:
         args = ["--disable-notifications"]
 
     # Try 1: Installed Google Chrome
     try:
         return p.chromium.launch(channel="chrome", headless=headless, args=args)
-    except Exception as e1:
-        print(f"[FB Scraper] System Chrome launch failed: {e1}. Trying system Edge...")
+    except Exception:
+        pass
 
-    # Try 2: Installed Microsoft Edge (Default on Windows 10/11)
+    # Try 2: Installed Microsoft Edge
     try:
         return p.chromium.launch(channel="msedge", headless=headless, args=args)
-    except Exception as e2:
-        print(f"[FB Scraper] System Edge launch failed: {e2}. Trying standard Playwright Chromium...")
+    except Exception:
+        pass
 
     # Try 3: Standard Playwright Chromium
-    return p.chromium.launch(headless=headless, args=args)
+    try:
+        return p.chromium.launch(headless=headless, args=args)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "executable doesn't exist" in err_str or "playwright install" in err_str or "looks like playwright was just installed" in err_str:
+            print("[FB Scraper] Playwright Chromium executable missing. Installing Chromium automatically...")
+            try:
+                import subprocess
+                import sys
+                subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+                return p.chromium.launch(headless=headless, args=args)
+            except Exception as inst_err:
+                print(f"[FB Scraper] Auto-install failed: {inst_err}")
+        raise e
+
+def _extract_avatar_url(item):
+    """Extracts valid profile picture URL from an item element, skipping emojis and static icons."""
+    try:
+        # 1. Search for <img> tags
+        imgs = item.query_selector_all('img')
+        for img in imgs:
+            src = img.get_attribute('src') or ""
+            if src and "emoji.php" not in src and "rsrc.php" not in src:
+                if any(k in src for k in ["scontent", "fbcdn.net", "fbsbx", "profile", "https://"]):
+                    return src
+
+        # 2. Search for SVG <image> tags (Facebook modern UI uses SVG images for avatars)
+        images = item.query_selector_all('image')
+        for img_node in images:
+            href = img_node.get_attribute('xlink:href') or img_node.get_attribute('href') or ""
+            if href and "emoji.php" not in href and "rsrc.php" not in href:
+                if any(k in href for k in ["scontent", "fbcdn.net", "fbsbx", "profile", "https://"]):
+                    return href
+
+        # 3. Fallback: any img src that is not an emoji/icon
+        for img in imgs:
+            src = img.get_attribute('src') or ""
+            if src and "emoji.php" not in src and "rsrc.php" not in src:
+                return src
+    except Exception:
+        pass
+    return ""
+
+def clean_profile_url(href: str) -> str:
+    """Normalizes and validates Facebook profile URLs, filtering out own-profile (/me) and generic links."""
+    if not href:
+        return ""
+    href = href.strip()
+
+    if href.startswith("/"):
+        href = f"https://www.facebook.com{href}"
+    elif not href.startswith("http"):
+        href = f"https://www.facebook.com/{href}"
+
+    href_lower = href.lower()
+
+    invalid_patterns = [
+        "facebook.com/me",
+        "facebook.com/#",
+        "facebook.com/events",
+        "facebook.com/friends",
+        "facebook.com/groups",
+        "facebook.com/gaming",
+        "facebook.com/watch",
+        "facebook.com/marketplace",
+        "facebook.com/messages",
+        "facebook.com/notifications",
+        "facebook.com/saved",
+        "facebook.com/bookmarks",
+        "facebook.com/settings"
+    ]
+    
+    for pattern in invalid_patterns:
+        if pattern in href_lower:
+            return ""
+
+    if href_lower in [
+        "https://facebook.com", "https://facebook.com/",
+        "https://www.facebook.com", "https://www.facebook.com/",
+        "http://facebook.com", "http://facebook.com/",
+        "http://www.facebook.com", "http://www.facebook.com/"
+    ]:
+        return ""
+
+    if "profile.php" in href_lower:
+        match = re.search(r"profile\.php\?id=\d+", href)
+        if match:
+            return f"https://www.facebook.com/{match.group(0)}"
+    else:
+        href = href.split("?")[0].split("&")[0]
+
+    return href
 
 class FacebookScraper:
     def __init__(self, state_file: str = STATE_FILE, db: BirthdayDatabase = None):
@@ -243,13 +337,9 @@ class FacebookScraper:
                     main_element = page.body
 
                 processed_names = set()
-                items = main_element.query_selector_all('div')
-                for item in items:
+                links = main_element.query_selector_all('a[href*="/user/"], a[href*="profile.php"], a[href*="facebook.com/"]')
+                for link in links:
                     try:
-                        link = item.query_selector('a[href*="/user/"], a[href*="profile.php"], a[href*="facebook.com/"]')
-                        if not link:
-                            continue
-
                         name = link.inner_text().strip()
                         href = link.get_attribute('href') or ""
 
@@ -259,17 +349,31 @@ class FacebookScraper:
                         if name.lower() in ["головна", "події", "дні народження", "друзі", "facebook", "home", "events", "menu"]:
                             continue
 
-                        img = item.query_selector('img')
-                        avatar_url = img.get_attribute('src') if img else ""
+                        container = link
+                        avatar_url = ""
+                        for _ in range(6):
+                            parent = container.query_selector('xpath=..')
+                            if not parent:
+                                break
+                            container = parent
+                            img_node = container.query_selector('image, svg image')
+                            if img_node:
+                                found_url = img_node.get_attribute('xlink:href') or img_node.get_attribute('href') or ""
+                                if found_url and "emoji.php" not in found_url and "rsrc.php" not in found_url:
+                                    if "scontent" in found_url or "fbcdn.net" in found_url or "fbsbx" in found_url:
+                                        avatar_url = found_url
+                                        break
 
-                        item_text = item.inner_text()
+                        item_text = container.inner_text()
                         day, month, year = parse_birthday_text(item_text)
+
+                        clean_href = clean_profile_url(href)
 
                         if day and month:
                             processed_names.add(name)
                             friend_data = {
                                 "fb_name": name,
-                                "profile_url": href,
+                                "profile_url": clean_href,
                                 "avatar_url": avatar_url or "",
                                 "birth_day": day,
                                 "birth_month": month,
@@ -302,18 +406,19 @@ class FacebookScraper:
         mon = today - timedelta(days=today.weekday())
 
         demo_list = [
-            {"fb_name": "Олександр Коваленко", "profile_url": "https://facebook.com", "birth_day": today.day, "birth_month": today.month, "birthday_str": f"{today.day} серпня"},
-            {"fb_name": "Марія Шевченко", "profile_url": "https://facebook.com", "birth_day": (mon + timedelta(days=2)).day, "birth_month": (mon + timedelta(days=2)).month, "birthday_str": f"{(mon + timedelta(days=2)).day} серпня"},
-            {"fb_name": "Дмитро Мельник", "profile_url": "https://facebook.com", "birth_day": (mon + timedelta(days=4)).day, "birth_month": (mon + timedelta(days=4)).month, "birthday_str": f"{(mon + timedelta(days=4)).day} серпня"},
-            {"fb_name": "Анна Бойко", "profile_url": "https://facebook.com", "birth_day": 12, "birth_month": 9, "birthday_str": "12 вересня"},
-            {"fb_name": "Віталій Кравченко", "profile_url": "https://facebook.com", "birth_day": 25, "birth_month": 9, "birthday_str": "25 вересня"},
-            {"fb_name": "Олена Ткаченко", "profile_url": "https://facebook.com", "birth_day": 5, "birth_month": 10, "birthday_str": "5 жовтня"},
+            {"fb_name": "Олександр Коваленко", "profile_url": "https://www.facebook.com/zuck", "avatar_url": "https://i.pravatar.cc/150?img=68", "birth_day": today.day, "birth_month": today.month, "birthday_str": f"{today.day} серпня"},
+            {"fb_name": "Марія Шевченко", "profile_url": "https://www.facebook.com/facebook", "avatar_url": "https://i.pravatar.cc/150?img=47", "birth_day": (mon + timedelta(days=2)).day, "birth_month": (mon + timedelta(days=2)).month, "birthday_str": f"{(mon + timedelta(days=2)).day} серпня"},
+            {"fb_name": "Дмитро Мельник", "profile_url": "https://www.facebook.com/zuck", "avatar_url": "https://i.pravatar.cc/150?img=12", "birth_day": (mon + timedelta(days=4)).day, "birth_month": (mon + timedelta(days=4)).month, "birthday_str": f"{(mon + timedelta(days=4)).day} серпня"},
+            {"fb_name": "Анна Бойко", "profile_url": "https://www.facebook.com/facebook", "avatar_url": "https://i.pravatar.cc/150?img=32", "birth_day": 12, "birth_month": 9, "birthday_str": "12 вересня"},
+            {"fb_name": "Віталій Кравченко", "profile_url": "https://www.facebook.com/zuck", "avatar_url": "https://i.pravatar.cc/150?img=53", "birth_day": 25, "birth_month": 9, "birthday_str": "25 вересня"},
+            {"fb_name": "Олена Ткаченко", "profile_url": "https://www.facebook.com/facebook", "avatar_url": "https://i.pravatar.cc/150?img=49", "birth_day": 5, "birth_month": 10, "birthday_str": "5 жовтня"},
         ]
 
         for item in demo_list:
             self.db.upsert_friend(
                 fb_name=item["fb_name"],
                 profile_url=item["profile_url"],
+                avatar_url=item.get("avatar_url", ""),
                 birth_day=item["birth_day"],
                 birth_month=item["birth_month"],
                 birthday_str=item["birthday_str"],
