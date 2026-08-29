@@ -75,73 +75,75 @@ ULTRA_DARK_STYLESHEET = """
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Ubuntu", "Cantarell", "Helvetica Neue", sans-serif;
 }
 QMainWindow {
-    background-color: #0d0e15;
+    background-color: #161717;
 }
 QWidget {
     font-family: 'Segoe UI Variable Display', 'Segoe UI', Arial, sans-serif;
-    color: #a9b1d6;
+    color: #e5e8e6;
 }
 
-/* Header & Glass Containers */
+/* Header & Containers */
 QFrame#HeaderFrame {
-    background-color: #161622;
-    border-bottom: 1px solid #1f2335;
+    background-color: #202222;
+    border-bottom: 1px solid #2c302f;
     padding: 8px 16px;
 }
 QFrame#StatCardToday {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff007f, stop:1 #7a00ff);
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #106038, stop:1 #167a48);
+    border: 1px solid #25a260;
     border-radius: 8px;
     padding: 0px;
 }
 QFrame#StatCardWeek {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1b26, stop:1 #24283b);
-    border: 1px solid #3b4261;
+    background-color: #202222;
+    border: 1px solid #2c302f;
     border-radius: 8px;
     padding: 0px;
 }
 QFrame#StatCardTotal {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #161622, stop:1 #1f2335);
-    border: 1px solid #2ac3de;
+    background-color: #202222;
+    border: 1px solid #106038;
     border-radius: 8px;
     padding: 0px;
 }
 QFrame#StatCardWeek:hover, QFrame#StatCardTotal:hover {
-    border: 1px solid #7dcfff;
+    border: 1px solid #25a260;
 }
 
 /* Friend Cards */
 QFrame#FriendCard {
-    background-color: #161622;
-    border-radius: 10px;
-    border: 1px solid #1f2335;
+    background-color: #202222;
+    border-radius: 8px;
+    border: 1px solid #2c302f;
 }
 QFrame#FriendCard:hover {
-    border: 1px solid #7dcfff;
-    background-color: #1a1b26;
+    border: 1px solid #106038;
+    background-color: #242727;
 }
 QFrame#FriendCardToday {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #291528, stop:1 #161622);
-    border-radius: 10px;
-    border: 2px solid #ff757f;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2b181e, stop:1 #202222);
+    border-radius: 8px;
+    border: 2px solid #e60017;
 }
 QFrame#FriendCardToday:hover {
-    border: 2px solid #c0caf5;
+    border: 2px solid #ff4d4d;
 }
 
 /* Labels & Typography */
 QLabel#AppTitle {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 800;
-    color: #7dcfff;
+    color: #e5e8e6;
     letter-spacing: 0.5px;
 }
 QLabel#StatusBadge {
     font-size: 13px;
     font-weight: 600;
     padding: 6px 12px;
-    border-radius: 12px;
-    background-color: #1f2335;
-    color: #7aa2f7;
+    border-radius: 10px;
+    background-color: #282c2b;
+    color: #25a260;
+    border: 1px solid #373d3b;
 }
 QLabel#StatNumHighlight {
     font-size: 16px;
@@ -151,7 +153,7 @@ QLabel#StatNumHighlight {
 QLabel#StatNumNormal {
     font-size: 16px;
     font-weight: 800;
-    color: #7dcfff;
+    color: #25a260;
 }
 QLabel#StatTitleHighlight {
     font-size: 12px;
@@ -161,83 +163,85 @@ QLabel#StatTitleHighlight {
 QLabel#StatTitleNormal {
     font-size: 12px;
     font-weight: 700;
-    color: #a9b1d6;
+    color: #8f9895;
 }
 
 /* Buttons */
 QPushButton {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7dcfff, stop:1 #7aa2f7);
-    color: #0f0f17;
+    background-color: #106038;
+    color: #ffffff;
     font-size: 14px;
     font-weight: 700;
-    border-radius: 10px;
-    padding: 10px 20px;
+    border-radius: 8px;
+    padding: 9px 18px;
     border: none;
 }
 QPushButton:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #bb9af7, stop:1 #7dcfff);
+    background-color: #167a48;
 }
 QPushButton:pressed {
-    background-color: #73daca;
+    background-color: #0d4d2d;
 }
 QPushButton#FbButton {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1877f2, stop:1 #0052cc);
+    background-color: #e60017;
     color: #ffffff;
 }
 QPushButton#FbButton:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3b82f6, stop:1 #1d4ed8);
+    background-color: #ff1a30;
 }
 QPushButton#SecondaryBtn {
-    background-color: #1f2335;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
+    background-color: #282c2b;
+    color: #e5e8e6;
+    border: 1px solid #373d3b;
 }
 QPushButton#SecondaryBtn:hover {
-    background-color: #24283b;
-    border: 1px solid #7dcfff;
+    background-color: #106038;
+    border: 1px solid #167a48;
     color: #ffffff;
 }
 
 /* Inputs & Tabs */
 QLineEdit {
-    background-color: #161622;
-    border: 1px solid #24283b;
-    border-radius: 10px;
-    padding: 10px 14px;
-    color: #c0caf5;
+    background-color: #282c2b;
+    border: 1px solid #373d3b;
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #e5e8e6;
     font-size: 14px;
 }
 QLineEdit:focus {
-    border: 1px solid #7dcfff;
-    background-color: #1a1b26;
+    border: 1px solid #106038;
+    background-color: #2c3130;
 }
 QTabWidget::pane {
     border: none;
     background: transparent;
 }
 QTabBar::tab {
-    background-color: #161622;
-    color: #565f89;
-    padding: 12px 24px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    margin-right: 6px;
+    background-color: #202222;
+    color: #8f9895;
+    padding: 10px 20px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 4px;
     font-weight: 700;
     font-size: 14px;
+    border: 1px solid #2c302f;
+    border-bottom: none;
 }
 QTabBar::tab:selected {
-    background-color: #1f2335;
-    color: #7dcfff;
-    border-bottom: 3px solid #7dcfff;
+    background-color: #106038;
+    color: #ffffff;
+    border: 1px solid #167a48;
 }
 QGroupBox {
-    background-color: #161622;
-    border: 1px solid #24283b;
-    border-radius: 12px;
+    background-color: #202222;
+    border: 1px solid #2c302f;
+    border-radius: 10px;
     margin-top: 14px;
-    padding: 20px;
+    padding: 18px;
     font-weight: 700;
-    color: #7dcfff;
+    color: #e5e8e6;
 }
 QScrollArea {
     border: none;
@@ -295,7 +299,7 @@ class FriendCardWidget(QFrame):
         radius = self.AVATAR_SIZE // 2
         if is_today:
             self.avatar_style = f"""
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #ff007f, stop:1 #7a00ff);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #e60017, stop:1 #ff4d4d);
                 color: #ffffff;
                 font-size: 16px;
                 font-weight: 900;
@@ -303,8 +307,8 @@ class FriendCardWidget(QFrame):
             """
         else:
             self.avatar_style = f"""
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #7dcfff, stop:1 #7aa2f7);
-                color: #0f0f17;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #106038, stop:1 #167a48);
+                color: #ffffff;
                 font-size: 15px;
                 font-weight: 800;
                 border-radius: {radius}px;
@@ -328,7 +332,7 @@ class FriendCardWidget(QFrame):
         info_layout.setSpacing(2)
 
         name_label = QLabel(name)
-        name_label.setStyleSheet("font-size: 15px; font-weight: 700; color: #c0caf5;")
+        name_label.setStyleSheet("font-size: 15px; font-weight: 700; color: #e5e8e6;")
 
         bday_str = friend.get("birthday_str", "")
         days_until = get_days_until(friend.get("birth_day"), friend.get("birth_month"))
@@ -336,19 +340,19 @@ class FriendCardWidget(QFrame):
         # Badge pill logic
         if is_today:
             pill_text = f"🎉 СЬОГОДНІ ДЕНЬ НАРОДЖЕННЯ! ({bday_str})"
-            pill_style = "background-color: #ff757f; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #e60017; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif days_until == 1:
             pill_text = f"🎂 ЗАВТРА ({bday_str})"
-            pill_style = "background-color: #73daca; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #106038; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif 0 < days_until <= 7:
             pill_text = f"📅 НА ЦЬОМУ ТИЖНІ (через {days_until} дн.) — {bday_str}"
-            pill_style = "background-color: #7aa2f7; color: #15161e; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #177846; color: #ffffff; font-weight: 800; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         elif days_until < 0:
             pill_text = f"🗓️ Був на цьому тижні ({abs(days_until)} дн. тому) — {bday_str}"
-            pill_style = "background-color: #24283b; color: #565f89; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #282c2b; color: #8f9895; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
         else:
             pill_text = f"🗓️ {bday_str}"
-            pill_style = "background-color: #1f2335; color: #7dcfff; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
+            pill_style = "background-color: #282c2b; color: #25a260; font-weight: 600; padding: 2px 8px; border-radius: 6px; font-size: 11px;"
 
         pill_label = QLabel(pill_text)
         pill_label.setStyleSheet(pill_style)
@@ -599,11 +603,11 @@ class BirthdayAssistantApp(QMainWindow):
         
         if self.scraper.is_logged_in():
             self.lbl_status_badge.setText("🟢 FB Авторизовано")
-            self.lbl_status_badge.setStyleSheet("font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 12px; background-color: #1a2b26; color: #73daca;")
+            self.lbl_status_badge.setStyleSheet("font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 10px; background-color: #106038; color: #ffffff; border: 1px solid #167a48;")
             self.lbl_status.setText("Акаунт Facebook авторизований.")
         else:
             self.lbl_status_badge.setText("🟡 Потрібен вхід")
-            self.lbl_status_badge.setStyleSheet("font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 12px; background-color: #2b261a; color: #e0af68;")
+            self.lbl_status_badge.setStyleSheet("font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 10px; background-color: #282c2b; color: #d9a726; border: 1px solid #373d3b;")
             self.lbl_status.setText("Акаунт не авторизований. Натисніть '🔑 Вхід у Facebook'.")
 
         check_and_notify_birthdays(self.db)
