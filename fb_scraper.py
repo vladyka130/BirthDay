@@ -326,9 +326,37 @@ class FacebookScraper:
                 except Exception:
                     pass
 
-                for i in range(12):
-                    page.keyboard.press("PageDown")
+                log("Глибоке прокручування сторінки для завантаження всіх 12 місяців...")
+                
+                # Dynamic infinite scrolling until end of page reached
+                last_height = 0
+                same_height_count = 0
+                for scroll_step in range(60):
+                    page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(0.5)
+                    
+                    # Click any "See More" / "Показати більше" buttons if present
+                    try:
+                        see_more_nodes = page.query_selector_all('div[role="button"]')
+                        for node in see_more_nodes:
+                            txt = (node.inner_text() or "").strip().lower()
+                            if any(k in txt for k in ["показати більше", "see more", "показати всі", "більше"]):
+                                try:
+                                    node.click()
+                                    time.sleep(0.3)
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+
+                    new_height = page.evaluate("document.body.scrollHeight")
+                    if new_height == last_height:
+                        same_height_count += 1
+                        if same_height_count >= 3:
+                            break
+                    else:
+                        same_height_count = 0
+                    last_height = new_height
 
                 time.sleep(1.5)
 
@@ -337,7 +365,7 @@ class FacebookScraper:
                     main_element = page.body
 
                 processed_names = set()
-                links = main_element.query_selector_all('a[href*="/user/"], a[href*="profile.php"], a[href*="facebook.com/"]')
+                links = main_element.query_selector_all('a[href*="/user/"], a[href*="profile.php"], a[href*="facebook.com/"], a[href^="/"]')
                 for link in links:
                     try:
                         name = link.inner_text().strip()
@@ -346,9 +374,11 @@ class FacebookScraper:
                         if not name or name in processed_names or len(name) < 2:
                             continue
 
-                        if name.lower() in ["головна", "події", "дні народження", "друзі", "facebook", "home", "events", "menu"]:
+                        name_lower = name.lower()
+                        if any(k in name_lower for k in ["головна", "події", "дні народження", "друзі", "facebook", "home", "events", "menu", "повідомлення", "сповіщення"]):
                             continue
 
+                        # Traverse parent containers up to find birthday text & avatar
                         container = link
                         avatar_url = ""
                         for _ in range(6):
@@ -356,13 +386,13 @@ class FacebookScraper:
                             if not parent:
                                 break
                             container = parent
-                            img_node = container.query_selector('image, svg image')
-                            if img_node:
-                                found_url = img_node.get_attribute('xlink:href') or img_node.get_attribute('href') or ""
-                                if found_url and "emoji.php" not in found_url and "rsrc.php" not in found_url:
-                                    if "scontent" in found_url or "fbcdn.net" in found_url or "fbsbx" in found_url:
-                                        avatar_url = found_url
-                                        break
+                            if not avatar_url:
+                                img_node = container.query_selector('image, svg image, img')
+                                if img_node:
+                                    found_url = img_node.get_attribute('xlink:href') or img_node.get_attribute('href') or img_node.get_attribute('src') or ""
+                                    if found_url and "emoji.php" not in found_url and "rsrc.php" not in found_url:
+                                        if any(k in found_url for k in ["scontent", "fbcdn.net", "fbsbx", "profile"]):
+                                            avatar_url = found_url
 
                         item_text = container.inner_text()
                         day, month, year = parse_birthday_text(item_text)
