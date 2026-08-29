@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Database
+birthdays.db
+
+# Sensitive Facebook Session & Profile Data
+fb_user_data/
+fb_state.json
+
+# Pytest & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Temporary / Scratch files
+scratch/
+debug_fb_page.py
+test_safe_launch.py
+test_storage_state.py
+test_thread.py
