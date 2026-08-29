@@ -491,16 +491,22 @@ class BirthdayAssistantApp(QMainWindow):
         self.progress_bar = QProgressBar()
         self.progress_bar.setRange(0, 0)
         self.progress_bar.setVisible(False)
-        self.progress_bar.setStyleSheet("QProgressBar { background: #161622; border-radius: 6px; min-height: 8px; max-height: 8px; } QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #7dcfff, stop:1 #bb9af7); border-radius: 6px; }")
+        self.progress_bar.setStyleSheet("QProgressBar { background: #202222; border-radius: 4px; min-height: 6px; max-height: 6px; } QProgressBar::chunk { background-color: #106038; border-radius: 4px; }")
         main_layout.addWidget(self.progress_bar)
 
         # Main Navigation Tabs
         self.tabs = QTabWidget()
 
-        # Tab 1: Current Week
+        # Tab 1: Current Week & Search
         self.tab_week = QWidget()
         tab_week_layout = QVBoxLayout(self.tab_week)
-        tab_week_layout.setContentsMargins(0, 14, 0, 0)
+        tab_week_layout.setContentsMargins(0, 10, 0, 0)
+        tab_week_layout.setSpacing(10)
+
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Швидкий пошук друга за ім'ям або датою...")
+        self.search_input.textChanged.connect(self._on_search_text_changed)
+        tab_week_layout.addWidget(self.search_input)
 
         self.scroll_week = QScrollArea()
         self.scroll_week.setWidgetResizable(True)
@@ -512,27 +518,7 @@ class BirthdayAssistantApp(QMainWindow):
 
         tab_week_layout.addWidget(self.scroll_week)
 
-        # Tab 2: All Friends
-        self.tab_all = QWidget()
-        tab_all_layout = QVBoxLayout(self.tab_all)
-        tab_all_layout.setContentsMargins(0, 14, 0, 0)
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("🔍 Пошук за ім'ям або датою народження...")
-        self.search_input.textChanged.connect(self._on_search_text_changed)
-        tab_all_layout.addWidget(self.search_input)
-
-        self.scroll_all = QScrollArea()
-        self.scroll_all.setWidgetResizable(True)
-        self.scroll_all_content = QWidget()
-        self.layout_all_list = QVBoxLayout(self.scroll_all_content)
-        self.layout_all_list.setSpacing(6)
-        self.layout_all_list.addStretch()
-        self.scroll_all.setWidget(self.scroll_all_content)
-
-        tab_all_layout.addWidget(self.scroll_all)
-
-        # Tab 3: Settings
+        # Tab 2: Settings
         self.tab_settings = QWidget()
         settings_layout = QVBoxLayout(self.tab_settings)
         settings_layout.setContentsMargins(10, 10, 10, 10)
@@ -543,7 +529,7 @@ class BirthdayAssistantApp(QMainWindow):
         group_l.setSpacing(10)
 
         lbl_cookie_info = QLabel("Ви можете вставити значення c_user та xs зі свого браузера Chrome/Edge:")
-        lbl_cookie_info.setStyleSheet("color: #565f89; font-size: 13px;")
+        lbl_cookie_info.setStyleSheet("color: #8f9895; font-size: 13px;")
 
         self.input_c_user = QLineEdit()
         self.input_c_user.setPlaceholderText("Введіть c_user (наприклад: 10000123456789)")
@@ -573,13 +559,12 @@ class BirthdayAssistantApp(QMainWindow):
         settings_layout.addWidget(btn_notify_test)
         settings_layout.addStretch()
 
-        self.tabs.addTab(self.tab_week, "📅 На цьому тижні")
-        self.tabs.addTab(self.tab_all, "👥 Усі друзі")
+        self.tabs.addTab(self.tab_week, "📅 Дні народження")
         self.tabs.addTab(self.tab_settings, "⚙️ Налаштування & Тест")
         main_layout.addWidget(self.tabs)
 
         self.lbl_status = QLabel("Готовий до роботи.")
-        self.lbl_status.setStyleSheet("color: #565f89; font-size: 13px;")
+        self.lbl_status.setStyleSheet("color: #8f9895; font-size: 13px;")
         main_layout.addWidget(self.lbl_status)
 
     def _refresh_data(self):
@@ -588,20 +573,8 @@ class BirthdayAssistantApp(QMainWindow):
         self.lbl_week_num.setText(str(stats["this_week_count"]))
         self.lbl_total_num.setText(str(stats["total_friends"]))
 
-        self._clear_layout(self.layout_week_list)
-        week_friends = self.db.get_friends_this_week()
-        if not week_friends:
-            no_data = QLabel("🎈 На цьому тижні немає днів народження друзів.")
-            no_data.setStyleSheet("font-size: 16px; font-weight: 600; color: #565f89; padding: 40px;")
-            no_data.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.layout_week_list.addWidget(no_data)
-        else:
-            for friend in week_friends:
-                self.layout_week_list.addWidget(FriendCardWidget(friend))
-        self.layout_week_list.addStretch()
+        self._populate_week_friends()
 
-        self._populate_all_friends(self.db.get_all_friends())
-        
         if self.scraper.is_logged_in():
             self.lbl_status_badge.setText("🟢 FB Авторизовано")
             self.lbl_status_badge.setStyleSheet("font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 10px; background-color: #106038; color: #ffffff; border: 1px solid #167a48;")
@@ -613,17 +586,25 @@ class BirthdayAssistantApp(QMainWindow):
 
         check_and_notify_birthdays(self.db)
 
-    def _populate_all_friends(self, friends_list: list):
-        self._clear_layout(self.layout_all_list)
-        if not friends_list:
-            no_data = QLabel("Список порожній. Натисніть 'Синхронізувати' або 'Завантажити демо-дані'.")
-            no_data.setStyleSheet("font-size: 16px; font-weight: 600; color: #565f89; padding: 40px;")
-            no_data.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.layout_all_list.addWidget(no_data)
+    def _populate_week_friends(self):
+        search_text = self.search_input.text().strip() if hasattr(self, 'search_input') else ""
+        self._clear_layout(self.layout_week_list)
+
+        if search_text:
+            friends = self.db.search_friends(search_text)
         else:
-            for friend in friends_list:
-                self.layout_all_list.addWidget(FriendCardWidget(friend))
-        self.layout_all_list.addStretch()
+            friends = self.db.get_friends_this_week()
+
+        if not friends:
+            msg = f"🔍 За запитом '{search_text}' нічого не знайдено." if search_text else "🎈 На цьому тижні немає днів народження друзів."
+            no_data = QLabel(msg)
+            no_data.setStyleSheet("font-size: 15px; font-weight: 600; color: #8f9895; padding: 30px;")
+            no_data.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.layout_week_list.addWidget(no_data)
+        else:
+            for friend in friends:
+                self.layout_week_list.addWidget(FriendCardWidget(friend))
+        self.layout_week_list.addStretch()
 
     def _clear_layout(self, layout):
         while layout.count() > 0:
@@ -632,11 +613,7 @@ class BirthdayAssistantApp(QMainWindow):
                 item.widget().deleteLater()
 
     def _on_search_text_changed(self, text: str):
-        if not text.strip():
-            self._populate_all_friends(self.db.get_all_friends())
-        else:
-            filtered = self.db.search_friends(text.strip())
-            self._populate_all_friends(filtered)
+        self._populate_week_friends()
 
     def _on_fb_login_clicked(self):
         self.btn_fb_login.setEnabled(False)
